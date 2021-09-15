@@ -27,7 +27,6 @@ Table *A::PrintStm::Interp(Table *t) const {
   // TODO: put your code here (lab1).
 }
 
-
 int Table::Lookup(const std::string &key) const {
   if (id == key) {
     return value;
@@ -41,4 +40,4 @@ int Table::Lookup(const std::string &key) const {
 Table *Table::Update(const std::string &key, int val) const {
   return new Table(key, val, this);
 }
-}  // namespace A
+} // namespace A
