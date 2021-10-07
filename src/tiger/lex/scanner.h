@@ -63,8 +63,6 @@ private:
   void postCode(PostEnum__ type);
   void adjust();
   void adjustStr();
-
-  std::string unescape(const std::string& str);
 };
 
 inline int Scanner::lex() { return lex__(); }
@@ -85,87 +83,5 @@ inline void Scanner::adjust() {
 }
 
 inline void Scanner::adjustStr() { char_pos_ += length(); }
-
-inline std::string Scanner::unescape(const std::string& str) {
-  int len = str.size();
-  int pos = 0;
-  std::string result;
-  while (pos < len) {
-    char current = str[pos];
-    char next = pos < len - 1 ? str[pos + 1] : '\0';
-    if (current == '\\') {
-      switch (next) {
-      case '\0':
-        errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
-        ++pos;
-        break;
-      case 'n':
-        result += '\n';
-        pos += 2;
-        break;
-      case 't':
-        result += '\t';
-        pos += 2;
-        break;
-      case '\\':
-        result += '\\';
-        pos += 2;
-        break;
-      case '"':
-        result += '"';
-        pos += 2;
-        break;
-      case '^': { // \^c
-        char c = pos + 1 < len - 1 ? str[pos + 2] : '\0';
-        if (c >= '@' && c <= '_') {
-          result += char(c - '@');
-          pos += 3;
-        } else {
-          errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
-          ++pos;
-        }
-        break;
-      }
-      case '\n':
-      case '\r':
-      case '\t':
-      case ' ':
-        ++pos;
-        while(pos < len && str[pos] != '\\') {
-          ++pos;
-        }
-        ++pos;
-        break;
-      default: {
-        if (next >= '0' && next <= '9') { // \ddd
-          if (pos >= len - 3) {
-            errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
-            ++pos;
-            break;
-          }
-          std::string ddd = str.substr(pos + 1, pos + 4);
-          int ascii = std::stoi(ddd);
-          if (ascii > 127) {
-            errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
-            ++pos;
-          } else {
-            char c = ascii;
-            result += c;
-            pos += 4;
-          }
-        } else {
-          errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
-          ++pos;
-        }
-        break;
-      }
-      }
-    } else {
-      result += current;
-      ++pos;
-    }
-  }
-  return result;
-}
 
 #endif // TIGER_LEX_SCANNER_H_

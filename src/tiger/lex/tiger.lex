@@ -137,15 +137,44 @@
 [[:digit:]]+ {adjust(); return Parser::INT;}
 
  /* strings */
-\" {adjust(); begin(StartCondition__::STR);}
+\" {
+    adjust();
+    begin(StartCondition__::STR);
+    string_buf_.clear();
+   }
 <STR> {
   \" {
       adjustStr();
       begin(StartCondition__::INITIAL);
-      setMatched(unescape(matched().substr(0, length() - 1)));
+      setMatched(string_buf_);
       return Parser::STRING;
      }
-  \\\"|.|\n {more();}
+  \\n {adjustStr(); string_buf_ += "\n";}
+  \\t {adjustStr(); string_buf_ += "\t";}
+  \\\^[@A-Z\[\]\^_\?] {
+      adjustStr();
+      char c = matched()[2];
+      if (c >= '@' && c <= '_') {
+        string_buf_ += c - '@';
+      } else if (c == '?') {
+        string_buf_ += (char)127;
+      } else {
+        errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
+      }
+     }
+  \\[[:digit:]]{3} {
+      adjustStr();
+      int ascii = atoi(matched().substr(1).c_str());
+      if (ascii < 0 || ascii > 127) {
+        errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");
+      }
+      string_buf_ += (char)ascii;
+     }
+  \\\" {adjustStr(); string_buf_ += "\"";}
+  \\\\ {adjustStr(); string_buf_ += "\\";}
+  \\[ \t\n\f]+\\ {adjustStr();}
+  \\ {adjust(); errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");}
+  . {adjustStr(); string_buf_ += matched();}
   <<EOF>> {adjust(); errormsg_->Error(errormsg_->tok_pos_, "unclosed string literal");}
 }
 
