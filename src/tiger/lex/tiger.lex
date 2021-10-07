@@ -73,14 +73,19 @@
          ++comment_level_;
        }
   "*/" {
-        adjust();
-        --comment_level_;
-        if (comment_level_ == 1) {
-          begin(StartCondition__::INITIAL);
-        }
+         adjust();
+         --comment_level_;
+         if (comment_level_ == 1) {
+           begin(StartCondition__::INITIAL);
+         }
        }
-  .|\n {adjust();}
-  <<EOF>> {adjust(); errormsg_->Error(errormsg_->tok_pos_, "unclosed comments");}
+  \n {adjust(); errormsg_->Newline();}
+  . {adjust();}
+  <<EOF>> {
+            adjust();
+            errormsg_->Error(errormsg_->tok_pos_, "unclosed comments");
+            begin(StartCondition__::INITIAL);
+          }
 }
 
  /* reserved words */
@@ -174,8 +179,17 @@
   \\\\ {adjustStr(); string_buf_ += "\\";}
   \\[ \t\n\f]+\\ {adjustStr();}
   \\ {adjust(); errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");}
+  \n {
+       adjust();
+       errormsg_->Newline();
+       errormsg_->Error(errormsg_->tok_pos_, "unexpected line break in string");
+     }
   . {adjustStr(); string_buf_ += matched();}
-  <<EOF>> {adjust(); errormsg_->Error(errormsg_->tok_pos_, "unclosed string literal");}
+  <<EOF>> {
+            adjust();
+            errormsg_->Error(errormsg_->tok_pos_, "unclosed string literal");
+            begin(StartCondition__::INITIAL);
+          }
 }
 
  /*
