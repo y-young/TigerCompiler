@@ -177,7 +177,7 @@
      }
   \\\" {adjustStr(); string_buf_ += "\"";}
   \\\\ {adjustStr(); string_buf_ += "\\";}
-  \\[ \t\n\f]+\\ {adjustStr();}
+  \\/[ \t\n\f] {adjustStr(); begin(StartCondition__::IGNORE);}
   \\ {adjust(); errormsg_->Error(errormsg_->tok_pos_, "illegal escape sequence");}
   \n {
        adjust();
@@ -188,6 +188,18 @@
   <<EOF>> {
             adjust();
             errormsg_->Error(errormsg_->tok_pos_, "unclosed string literal");
+            begin(StartCondition__::INITIAL);
+          }
+}
+
+<IGNORE> {
+  \n {adjustStr(); errormsg_->Newline();}
+  [ \t\f] {adjustStr();}
+  \\ {adjustStr(); begin(StartCondition__::STR);}
+  . {adjust(); errormsg_->Error(errormsg_->tok_pos_, "unexpected character in multiline string sequence");}
+  <<EOF>> {
+            adjust();
+            errormsg_->Error(errormsg_->tok_pos_, "unclosed multiline string sequence");
             begin(StartCondition__::INITIAL);
           }
 }
