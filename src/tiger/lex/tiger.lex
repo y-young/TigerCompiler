@@ -105,6 +105,7 @@
 "type" {adjust(); return Parser::TYPE;}
 "var" {adjust(); return Parser::VAR;}
 "while" {adjust(); return Parser::WHILE;}
+"break" {adjust(); return Parser::BREAK;}
 
  /* operators */
 "+" {adjust(); return Parser::PLUS;}

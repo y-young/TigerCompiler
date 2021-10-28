@@ -63,6 +63,7 @@ public:
   void Print(FILE *out) const;
   void SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                   err::ErrorMsg *errormsg) const;
+
 private:
   absyn::Exp *root_;
 };
@@ -502,6 +503,8 @@ public:
   }
   [[nodiscard]] const std::list<Exp *> &GetList() const { return exp_list_; }
   void Print(FILE *out, int d) const;
+  type::TyList *SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
+                           err::ErrorMsg *errormsg) const;
 
 private:
   std::list<Exp *> exp_list_;
@@ -615,6 +618,8 @@ public:
     return efield_list_;
   }
   void Print(FILE *out, int d) const;
+  type::FieldList *MakeFieldList(env::VEnvPtr venv, env::TEnvPtr tenv,
+                                 int labelcount, err::ErrorMsg *errormsg) const;
 
 private:
   std::list<EField *> efield_list_;
