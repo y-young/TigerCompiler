@@ -467,7 +467,7 @@ public:
   void SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
                   err::ErrorMsg *errormsg) const override;
   tr::Exp *Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Level *level,
-                     temp::Label *label, 
+                     temp::Label *label,
                      err::ErrorMsg *errormsg) const override;
   void Traverse(esc::EscEnvPtr env, int depth) override;
 };
@@ -487,7 +487,7 @@ public:
   void SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
                   err::ErrorMsg *errormsg) const override;
   tr::Exp *Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Level *level,
-                     temp::Label *label, 
+                     temp::Label *label,
                      err::ErrorMsg *errormsg) const override;
   void Traverse(esc::EscEnvPtr env, int depth) override;
 };
@@ -503,7 +503,7 @@ public:
   void SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
                   err::ErrorMsg *errormsg) const override;
   tr::Exp *Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Level *level,
-                     temp::Label *label, 
+                     temp::Label *label,
                      err::ErrorMsg *errormsg) const override;
   void Traverse(esc::EscEnvPtr env, int depth) override;
 };
@@ -617,6 +617,8 @@ public:
   }
   [[nodiscard]] const std::list<Exp *> &GetList() const { return exp_list_; }
   void Print(FILE *out, int d) const;
+  type::TyList *SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
+                           err::ErrorMsg *errormsg) const;
 
 private:
   std::list<Exp *> exp_list_;
@@ -730,6 +732,8 @@ public:
     return efield_list_;
   }
   void Print(FILE *out, int d) const;
+  type::FieldList *MakeFieldList(env::VEnvPtr venv, env::TEnvPtr tenv,
+                                 int labelcount, err::ErrorMsg *errormsg) const;
 
 private:
   std::list<EField *> efield_list_;
