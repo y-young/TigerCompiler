@@ -12,7 +12,6 @@ public:
   /* TODO: Put your lab5 code here */
 };
 
-
 class InRegAccess : public Access {
 public:
   temp::Temp *reg;
