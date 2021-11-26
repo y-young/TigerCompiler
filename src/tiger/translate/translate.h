@@ -36,7 +36,11 @@ public:
 
 class ProgTr {
 public:
-  /* TODO: Put your lab5 code here */ 
+  /* TODO: Put your lab5 code here */
+  ProgTr(std::unique_ptr<absyn::AbsynTree> absyn_tree,
+         std::unique_ptr<err::ErrorMsg> errormsg)
+      : absyn_tree_(std::move(absyn_tree)), errormsg_(std::move(errormsg)){};
+
   /**
    * Translate IR tree
    */
@@ -49,7 +53,6 @@ public:
   std::unique_ptr<err::ErrorMsg> TransferErrormsg() {
     return std::move(errormsg_);
   }
-
 
 private:
   std::unique_ptr<absyn::AbsynTree> absyn_tree_;
