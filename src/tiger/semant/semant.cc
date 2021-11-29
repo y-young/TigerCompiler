@@ -13,18 +13,24 @@ void AbsynTree::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *SimpleVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 int labelcount, err::ErrorMsg *errormsg) const {
   // If variable exists
-  env::VarEntry *var = (env::VarEntry *)venv->Look(sym_);
-  if (!var) {
+  env::EnvEntry *entry = venv->Look(sym_);
+  if (!entry) {
     errormsg->Error(pos_, "undefined variable %s", sym_->Name().c_str());
     return type::NilTy::Instance();
   }
+  if (typeid(*entry) != typeid(env::VarEntry)) {
+    errormsg->Error(pos_, "variable required");
+    return type::NilTy::Instance();
+  }
+  env::VarEntry *var = static_cast<env::VarEntry *>(entry);
   return var->ty_;
 }
 
 type::Ty *FieldVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
   // If variable is a record
-  type::Ty *type = var_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  type::Ty *type =
+      var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   if (typeid(*type) != typeid(type::RecordTy)) {
     errormsg->Error(pos_, "not a record type");
     return type::NilTy::Instance();
@@ -45,7 +51,8 @@ type::Ty *SubscriptVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    int labelcount,
                                    err::ErrorMsg *errormsg) const {
   // If variable is an array
-  type::Ty *type = var_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  type::Ty *type =
+      var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   if (typeid(*type) != typeid(type::ArrayTy)) {
     errormsg->Error(pos_, "array type required");
     return type::NilTy::Instance();
@@ -133,10 +140,10 @@ type::Ty *OpExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     // If types of operands match
     if (!leftTy->IsSameType(rightTy)) {
       errormsg->Error(pos_, "same type required");
-      return leftTy;
+      return type::IntTy::Instance();
     }
   }
-  return leftTy;
+  return type::IntTy::Instance();
 }
 
 type::Ty *RecordExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -207,7 +214,7 @@ type::Ty *AssignExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
       errormsg->Error(pos_, "loop variable can't be assigned");
     }
   }
-  return varTy;
+  return type::VoidTy::Instance();
 }
 
 type::Ty *IfExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -224,10 +231,12 @@ type::Ty *IfExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
       errormsg->Error(pos_ - 1, "then exp and else exp type mismatch");
       return thenTy;
     }
-  }
-  // If the body of if-then expression produces no value
-  if (!errormsg->AnyErrors() && !thenTy->IsSameType(type::VoidTy::Instance())) {
-    errormsg->Error(then_->pos_, "if-then exp's body must produce no value");
+  } else {
+    // If the body of if-then expression produces no value
+    if (!errormsg->AnyErrors() &&
+        !thenTy->IsSameType(type::VoidTy::Instance())) {
+      errormsg->Error(then_->pos_, "if-then exp's body must produce no value");
+    }
   }
   return thenTy;
 }
@@ -273,10 +282,12 @@ type::Ty *BreakExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *LetExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                              int labelcount, err::ErrorMsg *errormsg) const {
   venv->BeginScope();
+  tenv->BeginScope();
   for (absyn::Dec *dec : decs_->GetList()) {
     dec->SemAnalyze(venv, tenv, labelcount, errormsg);
   }
   type::Ty *type = body_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  tenv->EndScope();
   venv->EndScope();
   return type;
 }
@@ -302,7 +313,7 @@ type::Ty *ArrayExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(pos_, "type mismatch");
     return type;
   }
-  return new type::ArrayTy(type);
+  return type;
 }
 
 type::Ty *VoidExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -317,10 +328,14 @@ void FunctionDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
         function->params_->MakeFormalTyList(tenv, errormsg);
     type::Ty *resultTy = function->result_ ? tenv->Look(function->result_)
                                            : type::VoidTy::Instance();
-    // If two functions have the same name
-    if (venv->Look(function->name_)) {
-      errormsg->Error(function->pos_, "two functions have the same name");
-      return;
+    // If two functions have the same name, check only in this declaration list
+    // not in environment, since we allow function shadowing
+    for (absyn::FunDec *anotherFunction : functions_->GetList()) {
+      if (function != anotherFunction &&
+          function->name_ == anotherFunction->name_) {
+        errormsg->Error(function->pos_, "two functions have the same name");
+        return;
+      }
     }
     venv->Enter(function->name_, new env::FunEntry(formalTys, resultTy));
   }
@@ -364,7 +379,7 @@ void VarDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
       errormsg->Error(init_->pos_, "type mismatch");
     }
   } else { // Implicit type with initializer
-    type = initTy;
+    type = initTy->ActualTy();
     // If Nil value is used to initialize an implicit-type variable
     if (type->IsSameType(type::NilTy::Instance()) &&
         typeid(*type) != typeid(type::RecordTy)) {
@@ -378,10 +393,13 @@ void VarDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
 void TypeDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
                          err::ErrorMsg *errormsg) const {
   for (NameAndTy *type : types_->GetList()) {
-    // If two types have the same name
-    if (tenv->Look(type->name_)) {
-      errormsg->Error(pos_, "two types have the same name");
-      return;
+    // If two types have the same name, check only in this declaration list
+    // not in environment, since we allow type shadowing
+    for (NameAndTy *anotherType : types_->GetList()) {
+      if (type != anotherType && type->name_ == anotherType->name_) {
+        errormsg->Error(pos_, "two types have the same name");
+        return;
+      }
     }
     tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
   }
