@@ -23,6 +23,14 @@ class Traces;
 
 namespace cg {
 
+enum OperandType { IMM, REG, MEM };
+enum OperandRole { SRC, DST };
+
+OperandType GetOperandType(const tree::Exp *exp);
+temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
+                             std::string &assem, assem::InstrList &instr_list,
+                             std::string_view fs);
+
 class AssemInstr {
 public:
   AssemInstr() = delete;
