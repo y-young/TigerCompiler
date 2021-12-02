@@ -245,7 +245,7 @@ type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
   // If the body of while expression produces no value
   test_->SemAnalyze(venv, tenv, labelcount, errormsg);
-  type::Ty *bodyTy = body_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  type::Ty *bodyTy = body_->SemAnalyze(venv, tenv, labelcount + 1, errormsg);
   if (!bodyTy->IsSameType(type::VoidTy::Instance())) {
     errormsg->Error(pos_, "while body must produce no value");
   }
