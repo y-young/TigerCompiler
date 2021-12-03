@@ -1,4 +1,5 @@
 #include "tiger/output/output.h"
+#include "tiger/regalloc/regalloc.h"
 
 #include <cstdio>
 
