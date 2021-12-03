@@ -64,6 +64,29 @@ OperandType GetOperandType(const tree::Exp *exp) {
   return OperandType::REG;
 }
 
+temp::TempList *MunchMemAddr(tree::Exp *addr, OperandRole role,
+                             std::string &assem, assem::InstrList &instr_list,
+                             std::string_view fs) {
+  assem = role == SRC ? "(`s0)" : "(`d0)";
+  if (typeid(*addr) == typeid(tree::BinopExp)) {
+    // Does the address look like reg + const?
+    tree::BinopExp *binopExp = static_cast<tree::BinopExp *>(addr);
+    tree::Exp *left = binopExp->left_, *right = binopExp->right_;
+    // IMM(%REG)
+    if (typeid(*left) == typeid(tree::ConstExp)) {
+      int offset = static_cast<const tree::ConstExp *>(left)->consti_;
+      assem = std::to_string(offset) + assem;
+      return new temp::TempList(right->Munch(instr_list, fs));
+    }
+    if (typeid(*right) == typeid(tree::ConstExp)) {
+      int offset = static_cast<const tree::ConstExp *>(right)->consti_;
+      assem = std::to_string(offset) + assem;
+      return new temp::TempList(left->Munch(instr_list, fs));
+    }
+  }
+  return new temp::TempList(addr->Munch(instr_list, fs));
+}
+
 temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
                              std::string &assem, assem::InstrList &instr_list,
                              std::string_view fs) {
@@ -77,14 +100,8 @@ temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
     assem = role == SRC ? "`s0" : "`d0";
     return new temp::TempList(exp->Munch(instr_list, fs));
   case OperandType::MEM:
-    if (role == SRC) {
-      assem = "`s0";
-      return new temp::TempList(exp->Munch(instr_list, fs));
-    } else {
-      assem = "(`d0)";
-      return new temp::TempList(
-          static_cast<const tree::MemExp *>(exp)->exp_->Munch(instr_list, fs));
-    }
+    return MunchMemAddr(static_cast<const tree::MemExp *>(exp)->exp_, role,
+                        assem, instr_list, fs);
   }
 }
 } // namespace cg
@@ -123,10 +140,19 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   std::string srcAssem, dstAssemm;
-  temp::TempList *src = cg::MunchOperand(src_, cg::OperandRole::SRC, srcAssem,
-                                         instr_list, fs),
+  temp::TempList *src = nullptr,
                  *dst = cg::MunchOperand(dst_, cg::OperandRole::DST, dstAssemm,
                                          instr_list, fs);
+  if (typeid(*src_) == typeid(tree::MemExp) &&
+      typeid(*dst_) == typeid(tree::MemExp)) {
+    // Moving from memory to memory is not supported,
+    // use an intermediate register to store value loaded for source.
+    src = new temp::TempList(src_->Munch(instr_list, fs));
+    srcAssem = "`s0";
+  } else {
+    src =
+        cg::MunchOperand(src_, cg::OperandRole::SRC, srcAssem, instr_list, fs);
+  }
   std::stringstream assem;
   assem << "movq " << srcAssem << ", " << dstAssemm;
   instr_list.Append(new assem::OperInstr(assem.str(), dst, src, nullptr));
@@ -137,36 +163,46 @@ void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
-  temp::Temp *left = left_->Munch(instr_list, fs),
-             *right = right_->Munch(instr_list, fs), *result = nullptr;
+  temp::Temp *result = nullptr;
   const std::string instructions[] = {"addq", "subq", "imul", "idiv", "andq",
                                       "orq",  "salq", "shrq", "sarq", "xorq"};
   const std::string instruction = instructions[op_];
+  std::stringstream assem;
+  std::string leftAssem, rightAssem;
+  temp::TempList *left = cg::MunchOperand(left_, cg::OperandRole::SRC,
+                                          leftAssem, instr_list, fs),
+                 *right = cg::MunchOperand(right_, cg::OperandRole::SRC,
+                                           rightAssem, instr_list, fs);
   if (op_ == BinOp::MUL_OP || op_ == BinOp::DIV_OP) {
-    // imul and idiv use %rax
+    // imul and idiv use %rax as the destination
     result = reg_manager->ReturnValue();
-    instr_list.Append(new assem::MoveInstr("movq `s0, %rax",
-                                           new temp::TempList(result),
-                                           new temp::TempList(left)));
-    instr_list.Append(new assem::OperInstr(instruction + " `s0",
-                                           new temp::TempList(result),
-                                           new temp::TempList(right), nullptr));
   } else {
     result = temp::TempFactory::NewTemp();
-    instr_list.Append(new assem::MoveInstr(
-        "movq `s0, `d0", new temp::TempList(result), new temp::TempList(left)));
-    instr_list.Append(new assem::OperInstr(instruction + " `s0, `d0",
-                                           new temp::TempList(result),
-                                           new temp::TempList(right), nullptr));
   }
+  temp::TempList *dst = new temp::TempList(result);
+  assem << "movq " << leftAssem << ", `d0";
+  instr_list.Append(new assem::MoveInstr(assem.str(), dst, left));
+  assem.str("");
+  if (op_ == BinOp::MUL_OP || op_ == BinOp::DIV_OP) {
+    // imul and idiv use %rax as the destination
+    assem << instruction << ' ' << rightAssem;
+  } else {
+    assem << instruction << ' ' << rightAssem << ", `d0";
+  }
+  instr_list.Append(new assem::OperInstr(assem.str(), dst, right, nullptr));
   return result;
 }
 
 temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
-  temp::Temp *result = temp::TempFactory::NewTemp();
-  temp::Temp *addr = exp_->Munch(instr_list, fs);
-  instr_list.Append(new assem::MoveInstr(
-      "movq (`s0), `d0", new temp::TempList(result), new temp::TempList(addr)));
+  temp::Temp *result = temp::TempFactory::NewTemp(),
+             *addrReg = temp::TempFactory::NewTemp();
+  std::string addrAssem;
+  temp::TempList *addrSrc =
+      cg::MunchMemAddr(exp_, cg::OperandRole::SRC, addrAssem, instr_list, fs);
+  std::stringstream assem;
+  assem << "movq " << addrAssem << ", `d0";
+  instr_list.Append(
+      new assem::MoveInstr(assem.str(), new temp::TempList(result), addrSrc));
   return result;
 }
 
@@ -227,23 +263,23 @@ temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list,
   for (Exp *exp : exp_list_) {
     temp::Temp *srcReg = exp->Munch(instr_list, fs);
     argsUsed->Append(srcReg);
+    temp::TempList *src = new temp::TempList(srcReg);
     if (pos < argRegNum) {
       // Pass argument in registers
       temp::Temp *argReg = argRegs->NthTemp(pos);
       instr_list.Append(new assem::MoveInstr("movq `s0, `d0",
-                                             new temp::TempList(argReg),
-                                             new temp::TempList(srcReg)));
+                                             new temp::TempList(argReg), src));
     } else {
       // Pass argument on stack
       // instr_list.Append(new assem::OperInstr(
-      //     "pushq `s0", nullptr, new temp::TempList(srcReg), nullptr));
+      //     "pushq `s0", nullptr, src, nullptr));
       // Tiger Interpreter hasn't support pushq instruction yet,
       // so we'll implement it ourselves
       instr_list.Append(new assem::OperInstr(
           "subq $8, `d0", new temp::TempList(reg_manager->StackPointer()),
           nullptr, nullptr));
-      instr_list.Append(new assem::OperInstr(
-          "movq `s0, (%rsp)", nullptr, new temp::TempList(srcReg), nullptr));
+      instr_list.Append(
+          new assem::OperInstr("movq `s0, (%rsp)", nullptr, src, nullptr));
     }
     ++pos;
   }

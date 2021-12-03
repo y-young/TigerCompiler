@@ -27,6 +27,19 @@ enum OperandType { IMM, REG, MEM };
 enum OperandRole { SRC, DST };
 
 OperandType GetOperandType(const tree::Exp *exp);
+/**
+ * Select suitable addressing mode for a memory address
+ * @param assem Output assembly
+ * @return List of registers used in assem
+ */
+temp::TempList *MunchMemAddr(tree::Exp *addr, OperandRole role,
+                             std::string &assem, assem::InstrList &instr_list,
+                             std::string_view fs);
+/**
+ * Select suitable addressing mode for an operand
+ * @param assem Output assembly
+ * @return List of registers used in assem
+ */
 temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
                              std::string &assem, assem::InstrList &instr_list,
                              std::string_view fs);
