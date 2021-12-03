@@ -12,6 +12,12 @@
 
 namespace tr {
 
+// For void and error return type
+#define VOID_EXP (new tr::ExExp(new tree::ConstExp(0)))
+#define VOID_STM (new tree::ExpStm(new tree::ConstExp(0)))
+
+typedef std::list<Access *> AccessList;
+
 class Exp;
 class ExpAndTy;
 class Level;
@@ -24,6 +30,11 @@ public:
   Access(Level *level, frame::Access *access)
       : level_(level), access_(access) {}
   static Access *AllocLocal(Level *level, bool escape);
+  /*
+   * Get the expression to access the variable, with static links taken into
+   * account
+   */
+  tree::Exp *ToExp(Level *currentLevel);
 };
 
 class Level {
@@ -31,12 +42,25 @@ public:
   frame::Frame *frame_;
   Level *parent_;
 
-  /* TODO: Put your lab5 code here */
+  Level(Level *parent, temp::Label *name, std::unique_ptr<BoolList> escapes);
+  /*
+   * Get the access list of formal parameters with static links taken into
+   * account
+   */
+  AccessList *Formals();
+  static std::unique_ptr<Level> Outermost();
+  // Get the static link from current level to the target level
+  tree::Exp *StaticLink(Level *targetLevel);
 };
 
 class ProgTr {
 public:
-  /* TODO: Put your lab5 code here */ 
+  ProgTr(std::unique_ptr<absyn::AbsynTree> absyn_tree,
+         std::unique_ptr<err::ErrorMsg> errormsg)
+      : absyn_tree_(std::move(absyn_tree)), errormsg_(std::move(errormsg)),
+        tenv_(std::make_unique<env::TEnv>()),
+        venv_(std::make_unique<env::VEnv>()){};
+
   /**
    * Translate IR tree
    */
@@ -49,7 +73,6 @@ public:
   std::unique_ptr<err::ErrorMsg> TransferErrormsg() {
     return std::move(errormsg_);
   }
-
 
 private:
   std::unique_ptr<absyn::AbsynTree> absyn_tree_;
