@@ -189,16 +189,24 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   const std::string instruction = instructions[op_];
   std::stringstream assem;
   std::string leftAssem, rightAssem;
-  temp::TempList *left = cg::MunchOperand(left_, cg::OperandRole::SRC,
-                                          leftAssem, instr_list, fs),
-                 *right = cg::MunchOperand(right_, cg::OperandRole::SRC,
-                                           rightAssem, instr_list, fs);
+  temp::TempList *left = nullptr, *right = nullptr;
+
   if (op_ == BinOp::MUL_OP || op_ == BinOp::DIV_OP) {
+    // imul and idiv don't support immediate operand, so use a temp register
+    left = new temp::TempList(left_->Munch(instr_list, fs));
+    right = new temp::TempList(right_->Munch(instr_list, fs));
+    leftAssem = rightAssem = "`s0";
     // imul and idiv use %rax as the destination
     result = reg_manager->ReturnValue();
   } else {
+    left = cg::MunchOperand(left_, cg::OperandRole::SRC, leftAssem, instr_list,
+                            fs);
+    right = cg::MunchOperand(right_, cg::OperandRole::SRC, rightAssem,
+                             instr_list, fs);
     result = temp::TempFactory::NewTemp();
   }
+
+  // Move an operand into register
   // Destination is also used as a operand
   right->Append(result);
   temp::TempList *dst = new temp::TempList(result);
@@ -209,11 +217,21 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
     instr_list.Append(new assem::MoveInstr(assem.str(), dst, left));
   }
   assem.str("");
+  // Avoid Float point exception
+  if (op_ == BinOp::DIV_OP) {
+    instr_list.Append(new assem::OperInstr(
+        "cltd",
+        new temp::TempList({reg_manager->GetRegister(cg::IMUL_RAX),
+                            reg_manager->GetRegister(cg::IMUL_RDX)}),
+        new temp::TempList(reg_manager->GetRegister(cg::IMUL_RAX)), nullptr));
+  }
+
+  // Now build the instruction to do the calculation
   if (op_ == BinOp::MUL_OP || op_ == BinOp::DIV_OP) {
     // imul and idiv use %rax as the destination
     assem << instruction << ' ' << rightAssem;
     // %rdx is used as destination in imulq and idivq
-    dst->Append(reg_manager->GetRegister(3));
+    dst->Append(reg_manager->GetRegister(cg::IMUL_RDX));
   } else {
     assem << instruction << ' ' << rightAssem << ", `d0";
   }

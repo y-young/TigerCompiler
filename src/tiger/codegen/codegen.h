@@ -26,6 +26,8 @@ namespace cg {
 enum OperandType { IMM, REG, MEM };
 enum OperandRole { SRC, DST };
 
+const int IMUL_RAX = 0, IMUL_RDX = 3;
+
 OperandType GetOperandType(const tree::Exp *exp);
 /**
  * Select suitable addressing mode for a memory address
