@@ -10,11 +10,11 @@
 namespace frame {
 class X64RegManager : public RegManager {
 private:
-  const std::string REG_NAMES[16] = {"rax", "rbx", "rcx", "rdx", "rsi", "rdi",
-                                     "rbp", "rsp", "r8",  "r9",  "r10", "r11",
-                                     "r12", "r13", "r14", "r15"};
+  const std::vector<std::string> REG_NAMES = {
+      "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+      "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15"};
   const std::vector<int> ARG_REGS = {5, 4, 3, 2, 8, 9};
-  const std::vector<int> CALLER_SAVED_REGS = {10, 11};
+  const std::vector<int> CALLER_SAVED_REGS = {0, 2, 3, 4, 5, 8, 9, 10, 11};
   const std::vector<int> CALLEE_SAVED_REGS = {1, 6, 12, 13, 14, 15};
   const int FRAME_POINTER_REG = 6;
   const int STACK_POINTER_REG = 7;
@@ -53,6 +53,7 @@ public:
 class X64Frame : public Frame {
 public:
   X64Frame(temp::Label *name, std::unique_ptr<BoolList> escapes);
+  int Offset() const;
   int AllocLocal();
   AccessList *Formals();
   int Size() const;

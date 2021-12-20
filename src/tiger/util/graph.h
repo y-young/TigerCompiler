@@ -94,6 +94,7 @@ template <typename T> class NodeList {
 public:
   // Make a NodeList
   NodeList<T>() = default;
+  NodeList<T>(Node<T> *n) { node_list_ = {n}; };
   ~NodeList<T>() = default;
 
   // Tell if "a" is in the list
@@ -108,11 +109,16 @@ public:
 
   // Set operation on two lists
   NodeList<T> *Union(NodeList<T> *nl);
+  // Add a node to the list if it doesn't already exist,
+  // equivalent to: this = this ∪ {n}
+  void Union(Node<T> *n);
   NodeList<T> *Diff(NodeList<T> *nl);
 
   [[nodiscard]] const std::list<Node<T> *> &GetList() const {
     return node_list_;
   }
+
+  inline bool Empty() { return node_list_.empty(); }
 
 private:
   std::list<Node<T> *> node_list_{};
@@ -219,6 +225,12 @@ template <typename T> NodeList<T> *NodeList<T>::Union(NodeList<T> *nl) {
   res->CatList(nl);
   res->node_list_.unique();
   return res;
+}
+
+template <typename T> void NodeList<T>::Union(Node<T> *n) {
+  if (!Contain(n)) {
+    node_list_.push_back(n);
+  }
 }
 
 template <typename T> NodeList<T> *NodeList<T>::Diff(NodeList<T> *nl) {

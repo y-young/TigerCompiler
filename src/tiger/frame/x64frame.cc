@@ -15,7 +15,7 @@ X64RegManager::X64RegManager() : RegManager() {
 temp::TempList *X64RegManager::Registers() {
   temp::TempList *list = new temp::TempList();
   for (int regno = 0; regno < 16; ++regno) {
-    if (regno == 4) { // rsi
+    if (regno == STACK_POINTER_REG) { // rsp
       continue;
     }
     list->Append(regs_[regno]);
@@ -84,6 +84,8 @@ X64Frame::X64Frame(temp::Label *name, std::unique_ptr<BoolList> escapes)
     formals->push_back(Access::AllocLocal(this, escape));
   }
 }
+
+int X64Frame::Offset() const { return offset; }
 
 int X64Frame::AllocLocal() {
   // Keep away from the return address on the top of the frame
@@ -154,7 +156,7 @@ assem::Proc *ProcEntryExit3(Frame *frame, assem::InstrList *body) {
   prologue << "subq $" << rspOffset << ", %rsp" << std::endl;
   std::stringstream epilogue;
   epilogue << "addq $" << rspOffset << ", %rsp" << std::endl;
-  epilogue << "retq" << std::endl << ".END" << std::endl;
+  epilogue << "retq" << std::endl;
   return new assem::Proc(prologue.str(), body, epilogue.str());
 }
 

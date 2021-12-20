@@ -68,6 +68,13 @@ public:
   [[nodiscard]] Temp *NthTemp(int i) const;
   [[nodiscard]] const std::list<Temp *> &GetList() const { return temp_list_; }
 
+  bool Contain(Temp *t) const;
+  TempList *Union(TempList *other) const;
+  TempList *Subtract(TempList *other) const;
+  bool Equal(TempList *other) const;
+  TempList *Replace(Temp *oldTemp, Temp *newTemp) const;
+  void Print(FILE *out) const;
+
 private:
   std::list<Temp *> temp_list_;
 };

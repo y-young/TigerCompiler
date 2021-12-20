@@ -6,6 +6,8 @@
 #include "tiger/liveness/liveness.h"
 #include "tiger/util/graph.h"
 
+#include <set>
+
 namespace col {
 struct Result {
   Result() : coloring(nullptr), spills(nullptr) {}
@@ -16,7 +18,22 @@ struct Result {
 };
 
 class Color {
-  /* TODO: Put your lab6 code here */
+private:
+  std::set<std::string *> okColors;
+  temp::Map *coloring;
+
+public:
+  Color();
+  // initialize colors
+  void Initialize();
+  // assign a color, return false if spilled
+  bool Assign(live::INodePtr n);
+  // mark two nodes as the same color
+  void MarkSameColor(live::INodePtr m, live::INodePtr n);
+  // mark a conflict with another node
+  void MarkConflict(live::INodePtr n);
+  Result GetResult();
+  ~Color();
 };
 } // namespace col
 

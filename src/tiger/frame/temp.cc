@@ -81,4 +81,64 @@ void Map::DumpMap(FILE *out) {
   }
 }
 
+bool TempList::Contain(Temp *t) const {
+  return std::any_of(temp_list_.cbegin(), temp_list_.cend(),
+                     [t](Temp *t1) { return t1 == t; });
+}
+
+TempList *TempList::Union(TempList *other) const {
+  TempList *res = new TempList();
+  for (Temp *temp : temp_list_) {
+    if (!res->Contain(temp)) {
+      res->temp_list_.push_back(temp);
+    }
+  }
+  for (Temp *temp : other->GetList()) {
+    if (!res->Contain(temp)) {
+      res->temp_list_.push_back(temp);
+    }
+  }
+  return res;
+}
+
+TempList *TempList::Subtract(TempList *other) const {
+  TempList *res = new TempList();
+  for (Temp *temp : temp_list_) {
+    if (!other->Contain(temp)) {
+      res->temp_list_.push_back(temp);
+    }
+  }
+  return res;
+}
+
+bool TempList::Equal(TempList *other) const {
+  std::set<Temp *> left, right;
+  for (Temp *temp : temp_list_) {
+    left.insert(temp);
+  }
+  for (Temp *temp : other->GetList()) {
+    right.insert(temp);
+  }
+  return left == right;
+}
+
+TempList *TempList::Replace(Temp *oldTemp, Temp *newTemp) const {
+  TempList *res = new TempList();
+  for (Temp *temp : temp_list_) {
+    if (temp == oldTemp) {
+      res->temp_list_.push_back(newTemp);
+    } else {
+      res->temp_list_.push_back(temp);
+    }
+  }
+  return res;
+}
+
+void TempList::Print(FILE *out) const {
+  for (Temp *temp : temp_list_) {
+    fprintf(out, "t%d ", temp->Int());
+  }
+  fprintf(out, "\n");
+}
+
 } // namespace temp

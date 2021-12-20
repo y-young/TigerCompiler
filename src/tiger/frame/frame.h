@@ -26,7 +26,7 @@ public:
   temp::Temp *GetRegister(int regno) { return regs_[regno]; }
 
   /**
-   * Get general-purpose registers except RSI
+   * Get general-purpose registers except RSP
    * NOTE: returned temp list should be in the order of calling convention
    * @return general-purpose registers
    */
@@ -102,6 +102,7 @@ public:
   Frame(temp::Label *name) : offset(0), name_(name) {}
   std::string GetLabel() { return name_->Name(); }
   int Size() const { return -offset; }
+  virtual int Offset() const = 0;
   virtual int AllocLocal() = 0;
   // Get the access list of formal parameters
   virtual AccessList *Formals() = 0;

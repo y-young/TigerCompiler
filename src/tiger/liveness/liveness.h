@@ -2,19 +2,19 @@
 #define TIGER_LIVENESS_LIVENESS_H_
 
 #include "tiger/codegen/assem.h"
-#include "tiger/frame/x64frame.h"
 #include "tiger/frame/temp.h"
+#include "tiger/frame/x64frame.h"
 #include "tiger/liveness/flowgraph.h"
 #include "tiger/util/graph.h"
 
 namespace live {
 
 using INode = graph::Node<temp::Temp>;
-using INodePtr = graph::Node<temp::Temp>*;
+using INodePtr = graph::Node<temp::Temp> *;
 using INodeList = graph::NodeList<temp::Temp>;
-using INodeListPtr = graph::NodeList<temp::Temp>*;
+using INodeListPtr = graph::NodeList<temp::Temp> *;
 using IGraph = graph::Graph<temp::Temp>;
-using IGraphPtr = graph::Graph<temp::Temp>*;
+using IGraphPtr = graph::Graph<temp::Temp> *;
 
 class MoveList {
 public:
@@ -31,7 +31,14 @@ public:
     move_list_.emplace_front(src, dst);
   }
   MoveList *Union(MoveList *list);
+  // Add a new move to the list if it doesn't already exist
+  // equivalent to: this = this ∪ {(src, dst)}
+  void Union(INodePtr src, INodePtr dst);
   MoveList *Intersect(MoveList *list);
+  // remove moves related with the specified node
+  void DeleteNode(INodePtr node);
+  inline bool Empty() const { return move_list_.empty(); }
+  void Clear() { move_list_.clear(); }
 
 private:
   std::list<std::pair<INodePtr, INodePtr>> move_list_;
@@ -66,6 +73,8 @@ private:
 
   void LiveMap();
   void InterfGraph();
+  // Add interferences between precolored registers
+  void PrecoloredInterf();
 };
 
 } // namespace live
