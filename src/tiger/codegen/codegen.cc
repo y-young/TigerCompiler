@@ -26,10 +26,10 @@ void CodeGen::Codegen() {
 
   fs_ = frame_->GetLabel() + "_framesize";
   // Initialize frame pointer
-  instr_list->Append(
-      new assem::MoveInstr("leaq " + fs_ + "(`s0), `d0",
-                           new temp::TempList(reg_manager->FramePointer()),
-                           new temp::TempList(reg_manager->StackPointer())));
+  instr_list->Append(new assem::OperInstr(
+      "leaq " + fs_ + "(`s0), `d0",
+      new temp::TempList(reg_manager->FramePointer()),
+      new temp::TempList(reg_manager->StackPointer()), nullptr));
 
   for (tree::Stm *trace : traces_->GetStmList()->GetList()) {
     trace->Munch(*instr_list, fs_);
@@ -95,7 +95,7 @@ temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
   case OperandType::IMM:
     assem =
         "$" + std::to_string(static_cast<const tree::ConstExp *>(exp)->consti_);
-    return nullptr;
+    return new temp::TempList();
   case OperandType::REG:
     assem = role == SRC ? "`s0" : "`d0";
     return new temp::TempList(exp->Munch(instr_list, fs));
@@ -139,23 +139,43 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
-  std::string srcAssem, dstAssemm;
-  temp::TempList *src = nullptr,
-                 *dst = cg::MunchOperand(dst_, cg::OperandRole::DST, dstAssemm,
-                                         instr_list, fs);
-  if (typeid(*src_) == typeid(tree::MemExp) &&
-      typeid(*dst_) == typeid(tree::MemExp)) {
+  tree::Exp *src = src_, *dst = dst_;
+  std::string srcAssem, dstAssem;
+  temp::TempList *srcTemps = nullptr,
+                 *dstTemps = cg::MunchOperand(dst, cg::OperandRole::DST,
+                                              dstAssem, instr_list, fs);
+  if (typeid(*src) == typeid(tree::MemExp) &&
+      typeid(*dst) == typeid(tree::MemExp)) {
     // Moving from memory to memory is not supported,
     // use an intermediate register to store value loaded for source.
-    src = new temp::TempList(src_->Munch(instr_list, fs));
-    srcAssem = "`s0";
-  } else {
-    src =
-        cg::MunchOperand(src_, cg::OperandRole::SRC, srcAssem, instr_list, fs);
+    temp::TempList *intermediate =
+        new temp::TempList(src->Munch(instr_list, fs));
+    // Transform the instruction, modify src to the intermediate register
+    src = new tree::TempExp(intermediate->GetList().front());
+  }
+
+  // Now the instruction contains at most one memory operand
+  srcTemps =
+      cg::MunchOperand(src, cg::OperandRole::SRC, srcAssem, instr_list, fs);
+  if (typeid(*dst) == typeid(tree::MemExp)) {
+    // In instructions like movq $0, (%rsi), %rsi is not used as destination
+    // but is used as source
+    dstAssem = dstAssem.substr(0, dstAssem.find_first_of('(')) + "(`s" +
+               std::to_string(srcTemps->GetList().size()) + ")";
+    srcTemps->Append(dstTemps->GetList().front());
+    dstTemps = nullptr;
   }
   std::stringstream assem;
-  assem << "movq " << srcAssem << ", " << dstAssemm;
-  instr_list.Append(new assem::OperInstr(assem.str(), dst, src, nullptr));
+  assem << "movq " << srcAssem << ", " << dstAssem;
+  if (typeid(*src) == typeid(tree::MemExp) ||
+      typeid(*dst) == typeid(tree::MemExp)) {
+    // If any of the operands is memory, the move won't be between two
+    // temps, so it doesn't need to be considered during register allocation
+    instr_list.Append(
+        new assem::OperInstr(assem.str(), dstTemps, srcTemps, nullptr));
+  } else {
+    instr_list.Append(new assem::MoveInstr(assem.str(), dstTemps, srcTemps));
+  }
 }
 
 void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
@@ -164,8 +184,8 @@ void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   temp::Temp *result = nullptr;
-  const std::string instructions[] = {"addq", "subq", "imul", "idiv", "andq",
-                                      "orq",  "salq", "shrq", "sarq", "xorq"};
+  const std::string instructions[] = {"addq", "subq", "imulq", "idivq", "andq",
+                                      "orq",  "salq", "shrq",  "sarq",  "xorq"};
   const std::string instruction = instructions[op_];
   std::stringstream assem;
   std::string leftAssem, rightAssem;
@@ -179,13 +199,21 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   } else {
     result = temp::TempFactory::NewTemp();
   }
+  // Destination is also used as a operand
+  right->Append(result);
   temp::TempList *dst = new temp::TempList(result);
   assem << "movq " << leftAssem << ", `d0";
-  instr_list.Append(new assem::MoveInstr(assem.str(), dst, left));
+  if (typeid(*left_) == typeid(tree::MemExp)) {
+    instr_list.Append(new assem::OperInstr(assem.str(), dst, left, nullptr));
+  } else {
+    instr_list.Append(new assem::MoveInstr(assem.str(), dst, left));
+  }
   assem.str("");
   if (op_ == BinOp::MUL_OP || op_ == BinOp::DIV_OP) {
     // imul and idiv use %rax as the destination
     assem << instruction << ' ' << rightAssem;
+    // %rdx is used as destination in imulq and idivq
+    dst->Append(reg_manager->GetRegister(3));
   } else {
     assem << instruction << ' ' << rightAssem << ", `d0";
   }
@@ -201,8 +229,8 @@ temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
       cg::MunchMemAddr(exp_, cg::OperandRole::SRC, addrAssem, instr_list, fs);
   std::stringstream assem;
   assem << "movq " << addrAssem << ", `d0";
-  instr_list.Append(
-      new assem::MoveInstr(assem.str(), new temp::TempList(result), addrSrc));
+  instr_list.Append(new assem::OperInstr(
+      assem.str(), new temp::TempList(result), addrSrc, nullptr));
   return result;
 }
 
@@ -219,8 +247,8 @@ temp::Temp *NameExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   temp::Temp *dst = temp::TempFactory::NewTemp();
   std::stringstream assem;
   assem << "leaq " << name_->Name() << "(%rip), `d0";
-  instr_list.Append(
-      new assem::MoveInstr(assem.str(), new temp::TempList(dst), nullptr));
+  instr_list.Append(new assem::OperInstr(assem.str(), new temp::TempList(dst),
+                                         nullptr, nullptr));
   return dst;
 }
 
@@ -228,45 +256,50 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   temp::Temp *dst = temp::TempFactory::NewTemp();
   std::stringstream assem;
   assem << "movq $" << consti_ << ", `d0";
-  instr_list.Append(
-      new assem::MoveInstr(assem.str(), new temp::TempList(dst), nullptr));
+  instr_list.Append(new assem::OperInstr(assem.str(), new temp::TempList(dst),
+                                         nullptr, nullptr));
   return dst;
 }
 
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   assert(typeid(*fun_) == typeid(NameExp));
   NameExp *function = static_cast<NameExp *>(fun_);
-  temp::TempList *args = args_->MunchArgs(instr_list, fs);
+  temp::TempList *argRegs = args_->MunchArgs(instr_list, fs);
   // CALL instruction will trash caller saved registers,
   // specified as destinations
   instr_list.Append(new assem::OperInstr("callq " + function->name_->Name(),
-                                         reg_manager->CallerSaves(), args,
-                                         nullptr));
+                                         reg_manager->CallerSaves(),
+                                         reg_manager->ArgRegs(), nullptr));
+  temp::Temp *returnValue = temp::TempFactory::NewTemp();
+  instr_list.Append(
+      new assem::MoveInstr("movq `s0, `d0", new temp::TempList(returnValue),
+                           new temp::TempList(reg_manager->ReturnValue())));
   const int argCount = args_->GetList().size(),
             extraStack = frame::ArgExtraStack(argCount);
   if (extraStack > 0) {
     // Some arguments were passed on the stack, restore the stack pointer
     std::stringstream assem;
     assem << "addq $" << extraStack << ", `d0";
-    instr_list.Append(new assem::MoveInstr(
-        assem.str(), new temp::TempList(reg_manager->StackPointer()), nullptr));
+    instr_list.Append(new assem::OperInstr(
+        assem.str(), new temp::TempList(reg_manager->StackPointer()), nullptr,
+        nullptr));
   }
-  return reg_manager->ReturnValue();
+  return returnValue;
 }
 
 temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list,
                                    std::string_view fs) {
   temp::TempList *argRegs = reg_manager->ArgRegs();
   const int argRegNum = argRegs->GetList().size();
-  temp::TempList *argsUsed = new temp::TempList();
+  temp::TempList *argRegsUsed = new temp::TempList();
   int pos = 0;
   for (Exp *exp : exp_list_) {
     temp::Temp *srcReg = exp->Munch(instr_list, fs);
-    argsUsed->Append(srcReg);
     temp::TempList *src = new temp::TempList(srcReg);
     if (pos < argRegNum) {
       // Pass argument in registers
       temp::Temp *argReg = argRegs->NthTemp(pos);
+      argRegsUsed->Append(argReg);
       instr_list.Append(new assem::MoveInstr("movq `s0, `d0",
                                              new temp::TempList(argReg), src));
     } else {
@@ -278,12 +311,13 @@ temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list,
       instr_list.Append(new assem::OperInstr(
           "subq $8, `d0", new temp::TempList(reg_manager->StackPointer()),
           nullptr, nullptr));
-      instr_list.Append(
-          new assem::OperInstr("movq `s0, (%rsp)", nullptr, src, nullptr));
+      instr_list.Append(new assem::OperInstr(
+          "movq `s0, (%rsp)", new temp::TempList(reg_manager->StackPointer()),
+          src, nullptr));
     }
     ++pos;
   }
-  return argsUsed;
+  return argRegsUsed;
 }
 
 } // namespace tree
