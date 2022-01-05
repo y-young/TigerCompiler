@@ -26,10 +26,10 @@ void CodeGen::Codegen() {
 
   fs_ = frame_->GetLabel() + "_framesize";
   // Initialize frame pointer
-  instr_list->Append(new assem::OperInstr(
-      "leaq " + fs_ + "(`s0), `d0",
-      new temp::TempList(reg_manager->FramePointer()),
-      new temp::TempList(reg_manager->StackPointer()), nullptr));
+  // instr_list->Append(new assem::OperInstr(
+  //     "leaq " + fs_ + "(`s0), `d0",
+  //     new temp::TempList(reg_manager->FramePointer()),
+  //     new temp::TempList(reg_manager->StackPointer()), nullptr));
 
   for (tree::Stm *trace : traces_->GetStmList()->GetList()) {
     trace->Munch(*instr_list, fs_);
@@ -253,6 +253,15 @@ temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 temp::Temp *TempExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
+  if (temp_ == reg_manager->FramePointer()) {
+    temp::Temp *fp = temp::TempFactory::NewTemp();
+    std::stringstream assem;
+    assem << "leaq " << fs << "(`s0), `d0";
+    instr_list.Append(new assem::OperInstr(
+        assem.str(), new temp::TempList(fp),
+        new temp::TempList(reg_manager->StackPointer()), nullptr));
+    return fp;
+  }
   return temp_;
 }
 
