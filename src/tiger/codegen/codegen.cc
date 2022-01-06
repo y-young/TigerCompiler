@@ -15,15 +15,6 @@ namespace cg {
 
 void CodeGen::Codegen() {
   assem::InstrList *instr_list = new assem::InstrList();
-  // Save callee-saved registers
-  temp::TempList *calleeSaved = new temp::TempList();
-  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
-    temp::Temp *dst = temp::TempFactory::NewTemp();
-    instr_list->Append(new assem::MoveInstr(
-        "movq `s0, `d0", new temp::TempList(dst), new temp::TempList(reg)));
-    calleeSaved->Append(dst);
-  }
-
   fs_ = frame_->GetLabel() + "_framesize";
   // Initialize frame pointer
   // instr_list->Append(new assem::OperInstr(
@@ -34,16 +25,6 @@ void CodeGen::Codegen() {
   for (tree::Stm *trace : traces_->GetStmList()->GetList()) {
     trace->Munch(*instr_list, fs_);
   }
-
-  // Restore callee-saved registers
-  auto saved = calleeSaved->GetList().cbegin();
-  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
-    instr_list->Append(new assem::MoveInstr(
-        "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(*saved)));
-    ++saved;
-  }
-  delete calleeSaved;
-
   assem_instr_ =
       std::make_unique<AssemInstr>(frame::ProcEntryExit2(instr_list));
 }

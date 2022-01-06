@@ -106,6 +106,18 @@ tree::Exp *ExternalCall(std::string name, tree::ExpList *args) {
 }
 
 tree::Stm *ProcEntryExit1(Frame *frame, tree::Stm *stm) {
+  tree::Stm *prologue = new tree::ExpStm(new tree::ConstExp(0));
+  // Save callee-saved registers
+  temp::TempList *calleeSaved = new temp::TempList();
+  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
+    temp::Temp *dst = temp::TempFactory::NewTemp();
+    prologue =
+        new tree::SeqStm(prologue, new tree::MoveStm(new tree::TempExp(dst),
+                                                     new tree::TempExp(reg)));
+    calleeSaved->Append(dst);
+  }
+
+  // View shift
   tree::SeqStm *viewShift = nullptr, *tail = nullptr;
   temp::TempList *argRegs = reg_manager->ArgRegs();
   const int argRegCount = argRegs->GetList().size(),
@@ -125,19 +137,21 @@ tree::Stm *ProcEntryExit1(Frame *frame, tree::Stm *stm) {
       // Get from argument registers
       src = new tree::TempExp(argRegs->NthTemp(argPos));
     }
-    tree::MoveStm *moveStm = new tree::MoveStm(inFrameDst, src);
-    if (!tail) {
-      viewShift = tail = new tree::SeqStm(moveStm, nullptr);
-    } else {
-      tail->right_ = new tree::SeqStm(moveStm, nullptr);
-      tail = static_cast<tree::SeqStm *>(tail->right_);
-    }
+    prologue = new tree::SeqStm(prologue, new tree::MoveStm(inFrameDst, src));
     ++argPos;
   }
-  if (viewShift) {
-    tail->right_ = stm;
-    return viewShift;
+
+  stm = new tree::SeqStm(prologue, stm);
+
+  // Restore callee-saved registers
+  auto saved = calleeSaved->GetList().cbegin();
+  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
+    stm = new tree::SeqStm(stm, new tree::MoveStm(new tree::TempExp(reg),
+                                                  new tree::TempExp(*saved)));
+    ++saved;
   }
+  delete calleeSaved;
+
   return stm;
 }
 
