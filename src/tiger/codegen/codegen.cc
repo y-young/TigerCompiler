@@ -276,8 +276,8 @@ temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   // CALL instruction will trash caller saved registers,
   // specified as destinations
   instr_list.Append(new assem::OperInstr("callq " + function->name_->Name(),
-                                         reg_manager->CallerSaves(),
-                                         reg_manager->ArgRegs(), nullptr));
+                                         reg_manager->CallerSaves(), argRegs,
+                                         nullptr));
   temp::Temp *returnValue = temp::TempFactory::NewTemp();
   instr_list.Append(
       new assem::MoveInstr("movq `s0, `d0", new temp::TempList(returnValue),

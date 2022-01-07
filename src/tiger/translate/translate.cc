@@ -622,7 +622,7 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   if (!hi->ty_->IsSameType(type::IntTy::Instance())) {
     errormsg->Error(hi_->pos_, "for exp's range type is not integer");
   }
-  tr::ExpAndTy *body = body_->Translate(venv, tenv, level, label + 1, errormsg);
+  tr::ExpAndTy *body = body_->Translate(venv, tenv, level, label, errormsg);
   venv->EndScope();
 
   int pos = lo_->pos_;
