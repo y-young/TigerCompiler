@@ -1,19 +1,37 @@
 # Tiger Compiler Labs in C++
 
+## Branch Contents
+
+-   [lab1](../../tree/lab1): Implement a simple program analyzer and interpreter for the straight-line programming language (SLP)
+-   [lab2](../../tree/lab2): Implement a lexical scanner for the Tiger language using flexC++ (Lexical Analysis)
+-   [lab3](../../tree/lab3): Implement a parser for the Tiger language using BisonC++ (Syntax Analysis)
+-   [lab4](../../tree/lab4): Type Checking
+-   [lab5-part1](../../tree/lab5-part1): Escape Analysis
+-   [lab5](../../tree/lab5): Implement translation phase without register allocation and generates pseudo assembly code (Translation)
+-   [lab6](../../tree/lab6): Implement register allocation and finish the Tiger compiler (Register Allocation)
+
+## Plagiarism
+
+There is NO TOLERANCE for plagiarism. All the code here excepting the template is only for REFERENCE, you MUST write the code yourself, direct copying is strictly FORBIDDEN. For more information, refer to the course website.
+
+_The original README below_
+
+* * *
+
 ## Contents
 
-- [Tiger Compiler Labs in C++](#tiger-compiler-labs-in-c)
-  - [Contents](#contents)
-  - [Overview](#overview)
-  - [Difference Between C Labs and C++ Labs](#difference-between-c-labs-and-c-labs)
-  - [Installing Dependencies](#installing-dependencies)
-  - [Compiling and Debugging](#compiling-and-debugging)
-  - [Testing Your Labs](#testing-your-labs)
-  - [Submitting Your Labs](#submitting-your-labs)
-  - [Formatting Your Codes](#formatting-your-codes)
-  - [Other Commands](#other-commands)
-  - [Contributing to Tiger Compiler](#contributing-to-tiger-compiler)
-  - [External Documentations](#external-documentations)
+-   [Tiger Compiler Labs in C++](#tiger-compiler-labs-in-c)
+    -   [Contents](#contents)
+    -   [Overview](#overview)
+    -   [Difference Between C Labs and C++ Labs](#difference-between-c-labs-and-c-labs)
+    -   [Installing Dependencies](#installing-dependencies)
+    -   [Compiling and Debugging](#compiling-and-debugging)
+    -   [Testing Your Labs](#testing-your-labs)
+    -   [Submitting Your Labs](#submitting-your-labs)
+    -   [Formatting Your Codes](#formatting-your-codes)
+    -   [Other Commands](#other-commands)
+    -   [Contributing to Tiger Compiler](#contributing-to-tiger-compiler)
+    -   [External Documentations](#external-documentations)
 
 ## Overview
 
@@ -25,11 +43,11 @@ need to code in some of the directories.
 
 ## Difference Between C Labs and C++ Labs
 
-1. Tiger compiler in C++ uses [flexc++](https://fbb-git.gitlab.io/flexcpp/manual/flexc++.html) and [bisonc++](https://fbb-git.gitlab.io/bisoncpp/manual/bisonc++.html) instead of flex and bison because flexc++ and bisonc++ is more flexc++ and bisonc++ are able to generate pure C++ codes instead of C codes wrapped in C++ files.
+1.  Tiger compiler in C++ uses [flexc++](https://fbb-git.gitlab.io/flexcpp/manual/flexc++.html) and [bisonc++](https://fbb-git.gitlab.io/bisoncpp/manual/bisonc++.html) instead of flex and bison because flexc++ and bisonc++ is more flexc++ and bisonc++ are able to generate pure C++ codes instead of C codes wrapped in C++ files.
 
-2. Tiger compiler in C++ uses namespace for modularization and uses inheritance and polymorphism to replace unions used in the old labs.
+2.  Tiger compiler in C++ uses namespace for modularization and uses inheritance and polymorphism to replace unions used in the old labs.
 
-3. Tiger compiler in C++ uses CMake instead of Makefile to compile and build the target.
+3.  Tiger compiler in C++ uses CMake instead of Makefile to compile and build the target.
 
 <!---4. We've introduced lots of modern C++-style codes into tiger compiler, e.g., smart pointers, RAII, RTTI. To get familiar with the features of modern C++ and get recommendations for writing code in modern C++ style, please refer to [this doc](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-cpp-style.html) on our course website.-->
 
@@ -37,9 +55,9 @@ need to code in some of the directories.
 
 We provide you a Docker image that has already installed all the dependencies. You can compile your codes directly in this Docker image.
 
-1. Install [Docker](https://docs.docker.com/).
+1.  Install [Docker](https://docs.docker.com/).
 
-2. Run a docker container and mount the lab directory on it.
+2.  Run a docker container and mount the lab directory on it.
 
 ```bash
 # Run this command in the root directory of the project
@@ -50,7 +68,7 @@ docker run -it --privileged -p 2222:22 -v $(pwd):/home/stu/tiger-compiler ipadss
 
 There are five makeable targets in total, including `test_slp`, `test_lex`, `test_parse`, `test_semant`,  and `tiger-compiler`.
 
-1. Run container environment and attach to it
+1.  Run container environment and attach to it
 
 ```bash
 # Run container and directly attach to it
@@ -62,13 +80,13 @@ docker run -dt --privileged -p 2222:22 \
 docker attach ${YOUR_CONTAINER_ID}
 ```
 
-2. Build in the container environment
+2.  Build in the container environment
 
 ```bash
 mkdir build && cd build && cmake .. && make test_xxx  # or `make build`
 ```
 
-3. Debug using gdb or any IDEs
+3.  Debug using gdb or any IDEs
 
 ```bash
 gdb test_xxx # e.g. `gdb test_slp`
@@ -80,15 +98,19 @@ sure your lab passed the released version**
 ## Testing Your Labs
 
 Use `make`
+
 ```bash
 make gradelabx
 ```
+
 or run the script manually
+
 ```bash
 ./scripts/grade.sh [lab1|lab2|lab3|lab4|lab5|lab6|all] # e.g. `./scripts/grade.sh lab1`
 ```
 
 You can test all the labs by
+
 ```bash
 make gradeall
 ```
@@ -103,6 +125,7 @@ sure the `Enable shared runners for this project`
 under `Your GitLab repo - Settings - CI/CD` is turned on**.
 
 Push your code to your GitLab repo
+
 ```bash
 git add somefiles
 git commit -m "A message"
@@ -117,9 +140,8 @@ Pipelines`) passed. Otherwise, you won't get a full score in your lab.**
 We provide an LLVM-style .clang-format file in the project directory. You can use it to format your code.
 
 Use `clang-format` command
-```
-find . \( -name "*.h" -o -iname "*.cc" \) | xargs clang-format -i -style=file  # or make format
-```
+
+    find . \( -name "*.h" -o -iname "*.cc" \) | xargs clang-format -i -style=file  # or make format
 
 or config the clang-format file in your IDE and use the built-in format feature in it.
 
@@ -135,7 +157,6 @@ You can post questions, issues, feedback, or even MR proposals through [our main
 
 You can read external documentations on our course website:
 
-- [Lab Assignments](https://ipads.se.sjtu.edu.cn/courses/compilers/labs.shtml)
-- [Environment Configuration of Tiger Compiler Labs](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html)
-<!---- [Tiger Compiler in Modern C++ Style](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-cpp-style.html)-->
-
+-   [Lab Assignments](https://ipads.se.sjtu.edu.cn/courses/compilers/labs.shtml)
+-   [Environment Configuration of Tiger Compiler Labs](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html)
+    <!---- [Tiger Compiler in Modern C++ Style](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-cpp-style.html)-->
